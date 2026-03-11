@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Dash: Full Version</title>
+    <style>
+        :root {
+            --neon-blue: #00f2ff;
+            --neon-pink: #ff007f;
+            --bg-dark: #0a0a12;
+        }
+
+        body {
+            margin: 0; padding: 0; overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: 'Segoe UI', sans-serif;
+            color: white; user-select: none;
+        }
+
+        #ui-container {
+            position: absolute; width: 100vw; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+            z-index: 10;
+        }
+
+        /* MENU STYLING */
+        .menu-screen {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 50px; border-radius: 20px;
+            border: 3px solid var(--neon-blue);
+            box-shadow: 0 0 50px rgba(0, 242, 255, 0.3);
+            width: 400px;
+        }
+
+        .level-card {
+            background: #1a1a2e;
+            margin: 10px 0; padding: 15px;
+            border-radius: 10px; cursor: pointer;
+            transition: 0.3s; border: 1px solid #333;
+        }
+
+        .level-card:hover {
+            transform: scale(1.05);
+            background: var(--neon-blue); color: black;
+        }
+
+        .skin-select {
+            display: flex; justify-content: center; gap: 10px; margin-top: 20px;
+        }
+
+        .skin-box {
+            width: 40px; height: 40px; border: 2px solid #555;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+        }
+
+        .skin-box.active { border-color: var(--neon-pink); box-shadow: 0 0 10px var(--neon-pink); }
+        .skin-box.locked { opacity: 0.3; cursor: not-allowed; }
+
+        canvas { display: block; background: #05050a; }
+
+        #hud {
+            position: absolute; top: 20px; left: 0; width: 100%;
+            text-align: center; font-size: 24px; font-weight: bold;
+            pointer-events: none; text-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        .hidden { display: none !important; }
+
+        .btn {
+            background: var(--neon-pink); color: white;
+            border: none; padding: 10px 20px; border-radius: 5px;
+            font-weight: bold; cursor: pointer; margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="hud" class="hidden">POZIOM: <span id="lvl-name">1</span> - <span id="progress">0%</span></div>
+
+<div id="ui-container">
+    <div id="main-menu" class="menu-screen">
+        <h1 style="color: var(--neon-blue); margin-bottom: 30px;">NEON DASH</h1>
+        
+        <div id="levels-list">
+            <div class="level-card" onclick="startGame(0)">POZIOM 1: Początek</div>
+            <div class="level-card" onclick="startGame(1)">POZIOM 2: Skoki Wiary</div>
+            <div class="level-card" onclick="startGame(2)">POZIOM 3: Labirynt</div>
+        </div>
+
+        <h3>TWOJE IKONY</h3>
+        <div class="skin-select" id="skin-list">
+            </div>
+    </div>
+
+    <div id="end-screen" class="menu-screen hidden">
+        <h1 id="end-title">KONIEC!</h1>
+        <p id="end-info">Postęp: 0%</p>
+        <button class="btn" onclick="backToMenu()">WRÓĆ DO MENU</button>
+    </div>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+/** * KONFIGURACJA POZIOMÓW 
+ * B = Blok (platforma), S = Kolec, P = Portal (Meta)
+ * Liczba spacji to dystans
+ */
+const LEVELS = [
+    {
+        name: "Początek",
+        data: "      S    B  S   BBB   S   BB   S   S   BBBB  S  P",
+        color: "#00f2ff"
+    },
+    {
+        name: "Skoki Wiary",
+        data: "    S  B  S  B  S  B  S  BB  S  BBB  S  BB  S  BBB S P",
+        color: "#ff007f"
+    },
+    {
+        name: "Labirynt",
+        data: "   S  B  B  S  BB S  B S B S B  BB S B S BB S S P",
+        color: "#aaff00"
+    }
+];
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const skinList = document.getElementById('skin-list');
+
+// Stan Gry
+let currentLevel = null;
+let gameState = 'MENU';
+let gameSpeed = 7;
+let gravity = 0.6;
+let score = 0;
+let unlockedSkins = JSON.parse(localStorage.getItem('unlockedSkins')) || [0];
+let selectedSkin = 0;
+let particles = [];
+let worldX = 0;
+
+const player = {
+    x: 150, y: 0, size: 40,
+    velY: 0, jumpForce: -12,
+    grounded: false, rotation: 0,
+    trail: []
+};
+
+const skins = ["🟦", "🟥", "🟩", "⭐", "💀", "🔥"];
+
+// Inicjalizacja skinów
+function renderSkins() {
+    skinList.innerHTML = '';
+    skins.forEach((s, i) => {
+        const isLocked = i > 0 && !unlockedSkins.includes(i);
+        const div = document.createElement('div');
+        div.className = `skin-box ${selectedSkin === i ? 'active' : ''} ${isLocked ? 'locked' : ''}`;
+        div.innerHTML = s;
+        div.onclick = () => { if(!isLocked) { selectedSkin = i; renderSkins(); }};
+        skinList.appendChild(div);
+    });
+}
+
+// Fizyka i Mechanika
+function startGame(idx) {
+    currentLevel = JSON.parse(JSON.stringify(LEVELS[idx]));
+    gameState = 'PLAYING';
+    worldX = 0;
+    player.y = canvas.height - 150;
+    player.velY = 0;
+    player.trail = [];
+    particles = [];
+    
+    document.getElementById('main-menu').classList.add('hidden');
+    document.getElementById('end-screen').classList.add('hidden');
+    document.getElementById('hud').classList.remove('hidden');
+    document.getElementById('lvl-name').innerText = currentLevel.name;
+    
+    resize();
+    requestAnimationFrame(update);
+}
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+window.onresize = resize;
+resize();
+
+// Input
+const keys = {};
+window.onkeydown = (e) => {
+    if(e.code === 'Space' || e.code === 'ArrowUp') jump();
+};
+window.onmousedown = () => jump();
+
+function jump() {
+    if(player.grounded && gameState === 'PLAYING') {
+        player.velY = player.jumpForce;
+        player.grounded = false;
+        createParticles(player.x, player.y + player.size, '#fff');
+    }
+}
+
+function createParticles(x, y, color) {
+    for(let i=0; i<8; i++) {
+        particles.push({
+            x, y, 
+            vx: (Math.random()-0.5)*10, 
+            vy: (Math.random()-0.5)*10, 
+            life: 1.0, color
+        });
+    }
+}
+
+function update() {
+    if(gameState !== 'PLAYING') return;
+
+    // Ruch świata
+    worldX += gameSpeed;
+
+    // Grawitacja
+    player.velY += gravity;
+    player.y += player.velY;
+    player.grounded = false;
+
+    // Kolizja z ziemią (podstawowa)
+    const groundY = canvas.height - 100;
+    if(player.y + player.size > groundY) {
+        player.y = groundY - player.size;
+        player.velY = 0;
+        player.grounded = true;
+    }
+
+    // Rotacja
+    if(!player.grounded) {
+        player.rotation += 0.15;
+    } else {
+        player.rotation = Math.round(player.rotation / (Math.PI/2)) * (Math.PI/2);
+    }
+
+    // Przetwarzanie Levelu i Kolizje
+    const levelString = currentLevel.data;
+    const blockSize = 60;
+    let finished = false;
+
+    for(let i=0; i < levelString.length; i++) {
+        let char = levelString[i];
+        if(char === ' ') continue;
+
+        let bx = (i * 150) - worldX + 400; // Pozycja bloku
+        let by = groundY - blockSize;
+
+        // Jeśli blok jest w zasięgu ekranu
+        if(bx > -100 && bx < canvas.width + 100) {
+            
+            // Kolizja z kolcem (S)
+            if(char === 'S') {
+                if(checkRectCollision(player.x+5, player.y+5, player.size-10, player.size-10, bx+15, by+20, blockSize-30, blockSize-20)) {
+                    die();
+                }
+            }
+
+            // Kolizja z platformą (B)
+            if(char === 'B') {
+                // Kolizja z góry (wskakiwanie)
+                if(player.velY > 0 && 
+                   player.x + player.size > bx && 
+                   player.x < bx + blockSize &&
+                   player.y + player.size > by &&
+                   player.y + player.size < by + 30) {
+                    player.y = by - player.size;
+                    player.velY = 0;
+                    player.grounded = true;
+                } 
+                // Kolizja boczna (uderzenie w ścianę)
+                else if (player.x + player.size > bx + 5 && 
+                         player.x < bx + blockSize - 5 &&
+                         player.y + player.size > by + 10) {
+                    die();
+                }
+            }
+
+            // Meta (P)
+            if(char === 'P' && player.x > bx) {
+                win();
+                finished = true;
+            }
+        }
+    }
+
+    // Trail
+    player.trail.push({x: player.x, y: player.y});
+    if(player.trail.length > 15) player.trail.shift();
+
+    // Progres
+    const totalDist = levelString.length * 150;
+    const prog = Math.min(Math.floor((worldX / totalDist) * 100), 100);
+    document.getElementById('progress').innerText = prog + "%";
+
+    draw();
+    if(!finished) requestAnimationFrame(update);
+}
+
+function checkRectCollision(x1, y1, w1, h1, x2, y2, w2, h2) {
+    return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Tło (Paralaksa)
+    ctx.fillStyle = "#0a0a1a";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Ziemia
+    ctx.fillStyle = "#111";
+    ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
+    ctx.strokeStyle = currentLevel.color;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height - 100);
+    ctx.lineTo(canvas.width, canvas.height - 100);
+    ctx.stroke();
+
+    // Rysowanie Levelu
+    const levelString = currentLevel.data;
+    const groundY = canvas.height - 100;
+    const blockSize = 60;
+
+    for(let i=0; i < levelString.length; i++) {
+        let char = levelString[i];
+        let bx = (i * 150) - worldX + 400;
+        if(bx < -100 || bx > canvas.width + 100) continue;
+
+        if(char === 'B') {
+            ctx.fillStyle = "#222";
+            ctx.strokeStyle = currentLevel.color;
+            ctx.fillRect(bx, groundY - blockSize, blockSize, blockSize);
+            ctx.strokeRect(bx, groundY - blockSize, blockSize, blockSize);
+        } else if(char === 'S') {
+            ctx.fillStyle = "#ff3300";
+            ctx.beginPath();
+            ctx.moveTo(bx + 10, groundY);
+            ctx.lineTo(bx + blockSize - 10, groundY);
+            ctx.lineTo(bx + blockSize/2, groundY - blockSize + 10);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = "#fff";
+            ctx.stroke();
+        } else if(char === 'P') {
+            ctx.fillStyle = "#fff"; // Portal wygranej
+            ctx.shadowBlur = 20; ctx.shadowColor = "#fff";
+            ctx.fillRect(bx, groundY - 200, 20, 200);
+            ctx.shadowBlur = 0;
+        }
+    }
+
+    // Cząsteczki
+    particles.forEach((p, i) => {
+        p.x += p.vx; p.y += p.vy; p.life -= 0.02;
+        ctx.fillStyle = `rgba(255,255,255,${p.life})`;
+        ctx.fillRect(p.x, p.y, 4, 4);
+        if(p.life <= 0) particles.splice(i, 1);
+    });
+
+    // Trail gracza
+    player.trail.forEach((t, i) => {
+        ctx.fillStyle = `rgba(0, 242, 255, ${i/20})`;
+        ctx.fillRect(t.x, t.y, player.size, player.size);
+    });
+
+    // Gracz
+    ctx.save();
+    ctx.translate(player.x + player.size/2, player.y + player.size/2);
+    ctx.rotate(player.rotation);
+    ctx.shadowBlur = 15; ctx.shadowColor = currentLevel.color;
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(-player.size/2, -player.size/2, player.size, player.size);
+    ctx.fillStyle = "#000";
+    ctx.font = "24px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(skins[selectedSkin], 0, 0);
+    ctx.restore();
+}
+
+function die() {
+    gameState = 'GAMEOVER';
+    document.getElementById('end-screen').classList.remove('hidden');
+    document.getElementById('end-title').innerText = "ROZBITO CIĘ!";
+    document.getElementById('end-title').style.color = "red";
+    document.getElementById('end-info').innerText = "Postęp: " + document.getElementById('progress').innerText;
+}
+
+function win() {
+    gameState = 'WIN';
+    document.getElementById('end-screen').classList.remove('hidden');
+    document.getElementById('end-title').innerText = "POZIOM UKOŃCZONY!";
+    document.getElementById('end-title').style.color = "var(--neon-blue)";
+    
+    // Odblokuj nowy skin
+    if(unlockedSkins.length < skins.length) {
+        unlockedSkins.push(unlockedSkins.length);
+        localStorage.setItem('unlockedSkins', JSON.stringify(unlockedSkins));
+        renderSkins();
+        document.getElementById('end-info').innerText = "Odblokowano nową ikonę!";
+    }
+}
+
+function backToMenu() {
+    gameState = 'MENU';
+    document.getElementById('end-screen').classList.add('hidden');
+    document.getElementById('main-menu').classList.remove('hidden');
+    document.getElementById('hud').classList.add('hidden');
+}
+
+// Start
+renderSkins();
+</script>
+</body>
+</html>
