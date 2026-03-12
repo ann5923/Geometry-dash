@@ -3,423 +3,415 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neon Dash: Full Version</title>
+    <title>Neon Dash Ultra Pro</title>
     <style>
-        :root {
-            --neon-blue: #00f2ff;
-            --neon-pink: #ff007f;
-            --bg-dark: #0a0a12;
-        }
+        :root { --p: #ff0055; --s: #00ffff; }
+        body { margin: 0; overflow: hidden; background: #02020a; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; }
+        
+        #game-wrapper { position: relative; margin-top: 10px; border: 2px solid var(--p); box-shadow: 0 0 50px rgba(255,0,85,0.3); border-radius: 8px; overflow: hidden; }
+        canvas { display: block; background: #020205; }
 
-        body {
-            margin: 0; padding: 0; overflow: hidden;
-            background-color: var(--bg-dark);
-            font-family: 'Segoe UI', sans-serif;
-            color: white; user-select: none;
-        }
+        /* UI GÓRNE */
+        #ui-top { position: absolute; top: 10px; left: 20px; right: 20px; display: flex; justify-content: space-between; pointer-events: none; z-index: 5; font-weight: 900; letter-spacing: 1px; }
+        .stat { text-shadow: 0 0 10px currentColor; }
 
-        #ui-container {
-            position: absolute; width: 100vw; height: 100vh;
-            display: flex; justify-content: center; align-items: center;
-            z-index: 10;
-        }
+        /* MENU GŁÓWNE */
+        #menu { position: absolute; inset: 0; background: rgba(2, 2, 10, 0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; backdrop-filter: blur(15px); }
+        h1 { font-size: 70px; margin: 0; text-shadow: 0 0 30px var(--p); letter-spacing: 5px; font-style: italic; }
+        
+        .main-nav { display: flex; align-items: center; gap: 40px; margin-top: 30px; }
+        .nav-box { width: 90px; height: 90px; border: 2px solid var(--s); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s; background: rgba(0,255,255,0.05); }
+        .nav-box:hover { background: var(--s); color: #000; box-shadow: 0 0 30px var(--s); transform: translateY(-5px); }
+        .nav-box span { font-size: 11px; margin-top: 5px; font-weight: bold; }
 
-        /* MENU STYLING */
-        .menu-screen {
-            text-align: center;
-            background: rgba(0, 0, 0, 0.9);
-            padding: 50px; border-radius: 20px;
-            border: 3px solid var(--neon-blue);
-            box-shadow: 0 0 50px rgba(0, 242, 255, 0.3);
-            width: 400px;
-        }
+        #playBtn { padding: 20px 80px; font-size: 45px; font-weight: 900; background: transparent; color: white; border: 4px solid white; cursor: pointer; transition: 0.4s; text-shadow: 0 0 20px #fff; box-shadow: 0 0 30px rgba(255,255,255,0.1); border-radius: 50px; }
+        #playBtn:hover { transform: scale(1.05); background: #fff; color: #000; }
 
-        .level-card {
-            background: #1a1a2e;
-            margin: 10px 0; padding: 15px;
-            border-radius: 10px; cursor: pointer;
-            transition: 0.3s; border: 1px solid #333;
-        }
+        /* MODALE */
+        .modal { position: absolute; inset: 10px; background: #05050f; border: 2px solid var(--s); display: none; flex-direction: column; padding: 25px; z-index: 20; border-radius: 10px; box-shadow: 0 0 100px #000; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid rgba(0,255,255,0.2); padding-bottom: 10px; }
+        .close-btn { cursor: pointer; font-size: 30px; color: var(--p); transition: 0.3s; }
+        .close-btn:hover { transform: rotate(90deg); color: white; }
+        
+        .scroll-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 15px; overflow-y: auto; padding-right: 10px; }
+        .item-card { padding: 15px; border: 1px solid #222; text-align: center; cursor: pointer; transition: 0.2s; border-radius: 8px; position: relative; }
+        .item-card:hover { border-color: var(--s); background: rgba(0,255,255,0.1); }
+        .item-card.locked { opacity: 0.3; filter: grayscale(1); cursor: not-allowed; }
+        .item-card.active { border-color: white; box-shadow: 0 0 15px var(--s); background: rgba(255,255,255,0.05); }
+        .item-card .tag { position: absolute; top: 5px; right: 5px; font-size: 9px; color: var(--s); }
 
-        .level-card:hover {
-            transform: scale(1.05);
-            background: var(--neon-blue); color: black;
-        }
+        /* SKLEP ULEPSZEŃ */
+        .upgrade-row { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #222; }
+        .buy-btn { background: var(--s); color: #000; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; border-radius: 4px; }
+        .buy-btn:disabled { background: #333; color: #666; }
 
-        .skin-select {
-            display: flex; justify-content: center; gap: 10px; margin-top: 20px;
-        }
-
-        .skin-box {
-            width: 40px; height: 40px; border: 2px solid #555;
-            cursor: pointer; display: flex; align-items: center; justify-content: center;
-            font-size: 20px;
-        }
-
-        .skin-box.active { border-color: var(--neon-pink); box-shadow: 0 0 10px var(--neon-pink); }
-        .skin-box.locked { opacity: 0.3; cursor: not-allowed; }
-
-        canvas { display: block; background: #05050a; }
-
-        #hud {
-            position: absolute; top: 20px; left: 0; width: 100%;
-            text-align: center; font-size: 24px; font-weight: bold;
-            pointer-events: none; text-shadow: 0 0 10px var(--neon-blue);
-        }
-
-        .hidden { display: none !important; }
-
-        .btn {
-            background: var(--neon-pink); color: white;
-            border: none; padding: 10px 20px; border-radius: 5px;
-            font-weight: bold; cursor: pointer; margin-top: 20px;
-        }
     </style>
 </head>
 <body>
 
-<div id="hud" class="hidden">POZIOM: <span id="lvl-name">1</span> - <span id="progress">0%</span></div>
-
-<div id="ui-container">
-    <div id="main-menu" class="menu-screen">
-        <h1 style="color: var(--neon-blue); margin-bottom: 30px;">NEON DASH</h1>
-        
-        <div id="levels-list">
-            <div class="level-card" onclick="startGame(0)">POZIOM 1: Początek</div>
-            <div class="level-card" onclick="startGame(1)">POZIOM 2: Skoki Wiary</div>
-            <div class="level-card" onclick="startGame(2)">POZIOM 3: Labirynt</div>
+    <div id="game-wrapper">
+        <div id="ui-top">
+            <div class="stat" style="color: var(--s)">Wynik: <span id="score">0</span></div>
+            <div class="stat" style="color: #ffcc00">Neon-Punkty: <span id="coins">0</span></div>
+            <div class="stat" style="color: var(--p)" id="map-name">Poziom 1: Cyber</div>
         </div>
 
-        <h3>TWOJE IKONY</h3>
-        <div class="skin-select" id="skin-list">
+        <canvas id="gameCanvas" width="950" height="450"></canvas>
+
+        <div id="menu">
+            <h1>NEON DASH</h1>
+            <div class="main-nav">
+                <div class="nav-box" onclick="openModal('locker')">👕<span>SZAFKA</span></div>
+                <button id="playBtn">GRAJ</button>
+                <div class="nav-box" onclick="openModal('levels')">🗺️<span>MAPY</span></div>
             </div>
-    </div>
+            <div style="margin-top: 30px; display: flex; gap: 20px;">
+                <button onclick="openModal('shop')" style="background:none; border: 1px solid #444; color: #888; padding: 8px 20px; cursor: pointer; border-radius: 20px;">ULEPSZENIA (SKLEP)</button>
+            </div>
+        </div>
 
-    <div id="end-screen" class="menu-screen hidden">
-        <h1 id="end-title">KONIEC!</h1>
-        <p id="end-info">Postęp: 0%</p>
-        <button class="btn" onclick="backToMenu()">WRÓĆ DO MENU</button>
-    </div>
-</div>
+        <div id="locker" class="modal">
+            <div class="modal-header"><h2>TWOJA SZAFKA (SKINY)</h2><span class="close-btn" onclick="closeModals()">×</span></div>
+            <div id="skinGrid" class="scroll-grid"></div>
+        </div>
 
-<canvas id="gameCanvas"></canvas>
+        <div id="levels" class="modal">
+            <div class="modal-header"><h2>WYBIERZ POZIOM / ŚWIAT</h2><span class="close-btn" onclick="closeModals()">×</span></div>
+            <div id="levelGrid" class="scroll-grid"></div>
+        </div>
+
+        <div id="shop" class="modal">
+            <div class="modal-header"><h2>SKLEP Z MOCAMI</h2><span class="close-btn" onclick="closeModals()">×</span></div>
+            <div id="shopList">
+                <div class="upgrade-row"><div><h3>Podwójny Skok</h3><p>Pozwala skoczyć drugi raz w powietrzu.</p></div><button class="buy-btn" onclick="buy('dj', 1000)" id="btn-dj">KUP (1000)</button></div>
+                <div class="upgrade-row"><div><h3>Magnes Monet</h3><p>Przyciąga neon-punkty z daleka.</p></div><button class="buy-btn" onclick="buy('mag', 1500)" id="btn-mag">KUP (1500)</button></div>
+                <div class="upgrade-row"><div><h3>Super Tarcza</h3><p>Przetrwasz jedno uderzenie w kolce.</p></div><button class="buy-btn" onclick="buy('sh', 2000)" id="btn-sh">KUP (2000)</button></div>
+            </div>
+        </div>
+    </div>
 
 <script>
-/** * KONFIGURACJA POZIOMÓW 
- * B = Blok (platforma), S = Kolec, P = Portal (Meta)
- * Liczba spacji to dystans
- */
-const LEVELS = [
-    {
-        name: "Początek",
-        data: "      S    B  S   BBB   S   BB   S   S   BBBB  S  P",
-        color: "#00f2ff"
-    },
-    {
-        name: "Skoki Wiary",
-        data: "    S  B  S  B  S  B  S  BB  S  BBB  S  BB  S  BBB S P",
-        color: "#ff007f"
-    },
-    {
-        name: "Labirynt",
-        data: "   S  B  B  S  BB S  B S B S B  BB S B S BB S S P",
-        color: "#aaff00"
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // --- DANE (20 POZIOMÓW I SKINÓW) ---
+    const COLORS = ["#ff0055", "#00ffff", "#00ff66", "#bc00ff", "#ffaa00", "#ff00ea", "#33ff00", "#0066ff", "#ffffff", "#ff4444", "#8800ff", "#00ffcc", "#ffff00", "#ff8800", "#ff0088", "#0000ff", "#00ff00", "#cc00ff", "#00cccc", "#ff3333"];
+    const LEVELS = Array.from({length: 20}, (_, i) => ({
+        id: i,
+        name: `Strefa ${i+1}`,
+        p: COLORS[i % COLORS.length],
+        s: COLORS[(i+1) % COLORS.length],
+        unlocked: i === 0,
+        req: i * 1500
+    }));
+
+    const SKINS = Array.from({length: 20}, (_, i) => ({
+        id: i,
+        name: `Skin Neon ${i+1}`,
+        type: i, // Różne typy rysowania
+        unlocked: i === 0
+    }));
+
+    let gameData = {
+        coins: parseInt(localStorage.getItem('neon_c')) || 0,
+        unlockedLevels: JSON.parse(localStorage.getItem('neon_l')) || [0],
+        unlockedSkins: JSON.parse(localStorage.getItem('neon_s')) || [0],
+        activeSkin: parseInt(localStorage.getItem('neon_as')) || 0,
+        activeLevel: 0,
+        upgrades: JSON.parse(localStorage.getItem('neon_u')) || { dj: false, mag: false, sh: false }
+    };
+
+    // --- SILNIK GRY ---
+    let gameSpeed = 7;
+    let score = 0;
+    let isGameOver = true;
+    let frame = 0;
+    let obstacles = [];
+    let particles = [];
+    let trails = [];
+    let coins = [];
+    let platforms = [];
+
+    const player = {
+        x: 120, y: 300, size: 36, dy: 0, gravity: 0.8, jumpPower: -14,
+        grounded: true, jumps: 0, angle: 0,
+        update() {
+            this.dy += this.gravity;
+            this.y += this.dy;
+
+            let onAnyPlatform = false;
+            // Kolizja z podłogą
+            if (this.y + this.size > canvas.height - 40) {
+                this.y = canvas.height - 40 - this.size;
+                this.dy = 0;
+                this.grounded = true;
+                this.jumps = 0;
+                onAnyPlatform = true;
+            }
+
+            // Kolizja z platformami (blokami) - można na nich stać!
+            platforms.forEach(p => {
+                if (this.x + this.size > p.x && this.x < p.x + p.w) {
+                    // Lądowanie na górze bloku
+                    if (this.dy >= 0 && this.y + this.size <= p.y + 15 && this.y + this.size >= p.y - 10) {
+                        this.y = p.y - this.size;
+                        this.dy = 0;
+                        this.grounded = true;
+                        this.jumps = 0;
+                        onAnyPlatform = true;
+                    }
+                    // Uderzenie w bok bloku = śmierć
+                    else if (this.y + this.size > p.y + 5 && this.x + this.size > p.x + 5 && this.x < p.x + 15) {
+                        gameOver();
+                    }
+                }
+            });
+
+            if (!onAnyPlatform) this.grounded = false;
+
+            if (!this.grounded) {
+                this.angle += 5;
+                if (frame % 2 === 0) trails.push({x: this.x, y: this.y, a: 0.6, ang: this.angle});
+            } else {
+                this.angle = Math.round(this.angle/90)*90;
+            }
+            
+            if (this.y > canvas.height + 100) gameOver();
+        },
+        draw() {
+            ctx.save();
+            ctx.translate(this.x + this.size/2, this.y + this.size/2);
+            ctx.rotate(this.angle * Math.PI / 180);
+            
+            // Neonowy blask
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = LEVELS[gameData.activeLevel].s;
+            ctx.strokeStyle = LEVELS[gameData.activeLevel].s;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(-this.size/2, -this.size/2, this.size, this.size);
+            
+            // Wnętrze skina
+            ctx.fillStyle = "rgba(255,255,255,0.1)";
+            ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
+            
+            ctx.fillStyle = LEVELS[gameData.activeLevel].s;
+            const type = SKINS[gameData.activeSkin].id;
+            // Rysowanie różnych detali w zależności od skina
+            if (type % 4 === 0) ctx.fillRect(-4, -4, 8, 8);
+            else if (type % 4 === 1) ctx.strokeRect(-10, -10, 20, 20);
+            else if (type % 4 === 2) { ctx.beginPath(); ctx.arc(0,0, 6, 0, Math.PI*2); ctx.fill(); }
+            else { ctx.rotate(Math.PI/4); ctx.fillRect(-8, -8, 16, 16); }
+
+            ctx.restore();
+        }
+    };
+
+    // --- OBIEKTY ---
+    class Obstacle {
+        constructor(type, x, y, w, h) {
+            this.type = type; // 'spike' lub 'block'
+            this.x = x; this.y = y; this.w = w; this.h = h;
+        }
+        update() { this.x -= gameSpeed; }
+        draw() {
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = LEVELS[gameData.activeLevel].p;
+            ctx.fillStyle = LEVELS[gameData.activeLevel].p;
+            if (this.type === 'spike') {
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + this.h);
+                ctx.lineTo(this.x + this.w/2, this.y);
+                ctx.lineTo(this.x + this.w, this.y + this.h);
+                ctx.fill();
+            } else {
+                ctx.fillRect(this.x, this.y, this.w, this.h);
+                ctx.strokeStyle = "rgba(255,255,255,0.4)";
+                ctx.strokeRect(this.x+2, this.y+2, this.w-4, this.h-4);
+            }
+        }
     }
-];
 
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const skinList = document.getElementById('skin-list');
-
-// Stan Gry
-let currentLevel = null;
-let gameState = 'MENU';
-let gameSpeed = 7;
-let gravity = 0.6;
-let score = 0;
-let unlockedSkins = JSON.parse(localStorage.getItem('unlockedSkins')) || [0];
-let selectedSkin = 0;
-let particles = [];
-let worldX = 0;
-
-const player = {
-    x: 150, y: 0, size: 40,
-    velY: 0, jumpForce: -12,
-    grounded: false, rotation: 0,
-    trail: []
-};
-
-const skins = ["🟦", "🟥", "🟩", "⭐", "💀", "🔥"];
-
-// Inicjalizacja skinów
-function renderSkins() {
-    skinList.innerHTML = '';
-    skins.forEach((s, i) => {
-        const isLocked = i > 0 && !unlockedSkins.includes(i);
-        const div = document.createElement('div');
-        div.className = `skin-box ${selectedSkin === i ? 'active' : ''} ${isLocked ? 'locked' : ''}`;
-        div.innerHTML = s;
-        div.onclick = () => { if(!isLocked) { selectedSkin = i; renderSkins(); }};
-        skinList.appendChild(div);
-    });
-}
-
-// Fizyka i Mechanika
-function startGame(idx) {
-    currentLevel = JSON.parse(JSON.stringify(LEVELS[idx]));
-    gameState = 'PLAYING';
-    worldX = 0;
-    player.y = canvas.height - 150;
-    player.velY = 0;
-    player.trail = [];
-    particles = [];
-    
-    document.getElementById('main-menu').classList.add('hidden');
-    document.getElementById('end-screen').classList.add('hidden');
-    document.getElementById('hud').classList.remove('hidden');
-    document.getElementById('lvl-name').innerText = currentLevel.name;
-    
-    resize();
-    requestAnimationFrame(update);
-}
-
-function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-}
-window.onresize = resize;
-resize();
-
-// Input
-const keys = {};
-window.onkeydown = (e) => {
-    if(e.code === 'Space' || e.code === 'ArrowUp') jump();
-};
-window.onmousedown = () => jump();
-
-function jump() {
-    if(player.grounded && gameState === 'PLAYING') {
-        player.velY = player.jumpForce;
-        player.grounded = false;
-        createParticles(player.x, player.y + player.size, '#fff');
+    // --- MODALE ---
+    function openModal(id) {
+        document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+        document.getElementById(id).style.display = 'flex';
+        if (id === 'locker') renderLocker();
+        if (id === 'levels') renderLevels();
+        updateShopButtons();
     }
-}
+    function closeModals() { document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); }
 
-function createParticles(x, y, color) {
-    for(let i=0; i<8; i++) {
-        particles.push({
-            x, y, 
-            vx: (Math.random()-0.5)*10, 
-            vy: (Math.random()-0.5)*10, 
-            life: 1.0, color
+    function renderLocker() {
+        const grid = document.getElementById('skinGrid'); grid.innerHTML = '';
+        SKINS.forEach(s => {
+            const unlocked = gameData.unlockedSkins.includes(s.id);
+            const card = document.createElement('div');
+            card.className = `item-card ${!unlocked ? 'locked' : ''} ${gameData.activeSkin === s.id ? 'active' : ''}`;
+            card.innerHTML = `<h3>SKIN ${s.id+1}</h3><p>${unlocked ? 'Dostępny' : 'Zablokowany'}</p>`;
+            if (unlocked) card.onclick = () => { gameData.activeSkin = s.id; save(); renderLocker(); };
+            grid.appendChild(card);
         });
     }
-}
 
-function update() {
-    if(gameState !== 'PLAYING') return;
-
-    // Ruch świata
-    worldX += gameSpeed;
-
-    // Grawitacja
-    player.velY += gravity;
-    player.y += player.velY;
-    player.grounded = false;
-
-    // Kolizja z ziemią (podstawowa)
-    const groundY = canvas.height - 100;
-    if(player.y + player.size > groundY) {
-        player.y = groundY - player.size;
-        player.velY = 0;
-        player.grounded = true;
+    function renderLevels() {
+        const grid = document.getElementById('levelGrid'); grid.innerHTML = '';
+        LEVELS.forEach(l => {
+            const unlocked = gameData.unlockedLevels.includes(l.id);
+            const card = document.createElement('div');
+            card.className = `item-card ${!unlocked ? 'locked' : ''} ${gameData.activeLevel === l.id ? 'active' : ''}`;
+            card.style.borderColor = l.p;
+            card.innerHTML = `<div class="tag">${l.req} pkt</div><h3>${l.name}</h3>`;
+            if (unlocked) card.onclick = () => { gameData.activeLevel = l.id; document.getElementById('map-name').innerText = `Poziom ${l.id+1}: ${l.name}`; renderLevels(); };
+            grid.appendChild(card);
+        });
     }
 
-    // Rotacja
-    if(!player.grounded) {
-        player.rotation += 0.15;
-    } else {
-        player.rotation = Math.round(player.rotation / (Math.PI/2)) * (Math.PI/2);
-    }
-
-    // Przetwarzanie Levelu i Kolizje
-    const levelString = currentLevel.data;
-    const blockSize = 60;
-    let finished = false;
-
-    for(let i=0; i < levelString.length; i++) {
-        let char = levelString[i];
-        if(char === ' ') continue;
-
-        let bx = (i * 150) - worldX + 400; // Pozycja bloku
-        let by = groundY - blockSize;
-
-        // Jeśli blok jest w zasięgu ekranu
-        if(bx > -100 && bx < canvas.width + 100) {
-            
-            // Kolizja z kolcem (S)
-            if(char === 'S') {
-                if(checkRectCollision(player.x+5, player.y+5, player.size-10, player.size-10, bx+15, by+20, blockSize-30, blockSize-20)) {
-                    die();
-                }
-            }
-
-            // Kolizja z platformą (B)
-            if(char === 'B') {
-                // Kolizja z góry (wskakiwanie)
-                if(player.velY > 0 && 
-                   player.x + player.size > bx && 
-                   player.x < bx + blockSize &&
-                   player.y + player.size > by &&
-                   player.y + player.size < by + 30) {
-                    player.y = by - player.size;
-                    player.velY = 0;
-                    player.grounded = true;
-                } 
-                // Kolizja boczna (uderzenie w ścianę)
-                else if (player.x + player.size > bx + 5 && 
-                         player.x < bx + blockSize - 5 &&
-                         player.y + player.size > by + 10) {
-                    die();
-                }
-            }
-
-            // Meta (P)
-            if(char === 'P' && player.x > bx) {
-                win();
-                finished = true;
-            }
+    function buy(id, price) {
+        if (gameData.coins >= price && !gameData.upgrades[id]) {
+            gameData.coins -= price;
+            gameData.upgrades[id] = true;
+            save(); updateShopButtons();
         }
     }
 
-    // Trail
-    player.trail.push({x: player.x, y: player.y});
-    if(player.trail.length > 15) player.trail.shift();
+    function updateShopButtons() {
+        document.getElementById('btn-dj').innerText = gameData.upgrades.dj ? "ODBLOKOWANO" : "KUP (1000)";
+        document.getElementById('btn-mag').innerText = gameData.upgrades.mag ? "ODBLOKOWANO" : "KUP (1500)";
+        document.getElementById('btn-sh').innerText = gameData.upgrades.sh ? "ODBLOKOWANO" : "KUP (2000)";
+        document.getElementById('coins').innerText = gameData.coins;
+    }
 
-    // Progres
-    const totalDist = levelString.length * 150;
-    const prog = Math.min(Math.floor((worldX / totalDist) * 100), 100);
-    document.getElementById('progress').innerText = prog + "%";
+    function save() {
+        localStorage.setItem('neon_c', gameData.coins);
+        localStorage.setItem('neon_l', JSON.stringify(gameData.unlockedLevels));
+        localStorage.setItem('neon_s', JSON.stringify(gameData.unlockedSkins));
+        localStorage.setItem('neon_as', gameData.activeSkin);
+        localStorage.setItem('neon_u', JSON.stringify(gameData.upgrades));
+    }
 
-    draw();
-    if(!finished) requestAnimationFrame(update);
-}
+    // --- PĘTLA GRY ---
+    function loop() {
+        if (isGameOver) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Tło - siatka
+        ctx.strokeStyle = LEVELS[gameData.activeLevel].p + "15";
+        ctx.lineWidth = 1;
+        for(let i=0; i<canvas.width; i+=40) { ctx.beginPath(); ctx.moveTo(i - (frame*2 % 40), 0); ctx.lineTo(i - (frame*2 % 40), canvas.height); ctx.stroke(); }
 
-function checkRectCollision(x1, y1, w1, h1, x2, y2, w2, h2) {
-    return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
-}
+        // Podłoga
+        ctx.fillStyle = "#050510";
+        ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+        ctx.strokeStyle = LEVELS[gameData.activeLevel].p;
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(0, canvas.height-40); ctx.lineTo(canvas.width, canvas.height-40); ctx.stroke();
 
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Trails (Smugi)
+        trails.forEach((t, i) => {
+            t.x -= gameSpeed; t.a -= 0.03;
+            if (t.a <= 0) trails.splice(i, 1);
+            ctx.save();
+            ctx.globalAlpha = t.a;
+            ctx.translate(t.x + player.size/2, t.y + player.size/2);
+            ctx.rotate(t.ang * Math.PI/180);
+            ctx.strokeStyle = LEVELS[gameData.activeLevel].s;
+            ctx.strokeRect(-player.size/2, -player.size/2, player.size, player.size);
+            ctx.restore();
+        });
 
-    // Tło (Paralaksa)
-    ctx.fillStyle = "#0a0a1a";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Ziemia
-    ctx.fillStyle = "#111";
-    ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
-    ctx.strokeStyle = currentLevel.color;
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(0, canvas.height - 100);
-    ctx.lineTo(canvas.width, canvas.height - 100);
-    ctx.stroke();
-
-    // Rysowanie Levelu
-    const levelString = currentLevel.data;
-    const groundY = canvas.height - 100;
-    const blockSize = 60;
-
-    for(let i=0; i < levelString.length; i++) {
-        let char = levelString[i];
-        let bx = (i * 150) - worldX + 400;
-        if(bx < -100 || bx > canvas.width + 100) continue;
-
-        if(char === 'B') {
-            ctx.fillStyle = "#222";
-            ctx.strokeStyle = currentLevel.color;
-            ctx.fillRect(bx, groundY - blockSize, blockSize, blockSize);
-            ctx.strokeRect(bx, groundY - blockSize, blockSize, blockSize);
-        } else if(char === 'S') {
-            ctx.fillStyle = "#ff3300";
-            ctx.beginPath();
-            ctx.moveTo(bx + 10, groundY);
-            ctx.lineTo(bx + blockSize - 10, groundY);
-            ctx.lineTo(bx + blockSize/2, groundY - blockSize + 10);
-            ctx.closePath();
-            ctx.fill();
-            ctx.strokeStyle = "#fff";
-            ctx.stroke();
-        } else if(char === 'P') {
-            ctx.fillStyle = "#fff"; // Portal wygranej
-            ctx.shadowBlur = 20; ctx.shadowColor = "#fff";
-            ctx.fillRect(bx, groundY - 200, 20, 200);
-            ctx.shadowBlur = 0;
+        // Przeszkody i Platformy
+        if (frame % 80 === 0) {
+            let rand = Math.random();
+            if (rand < 0.4) { // Kolec
+                obstacles.push(new Obstacle('spike', canvas.width, canvas.height - 80, 40, 40));
+            } else if (rand < 0.7) { // Blok / Schodek
+                let h = 40 + Math.floor(Math.random()*2)*40;
+                platforms.push(new Obstacle('block', canvas.width, canvas.height - 40 - h, 60, h));
+            } else { // Seria schodków
+                platforms.push(new Obstacle('block', canvas.width, canvas.height - 80, 50, 40));
+                platforms.push(new Obstacle('block', canvas.width + 50, canvas.height - 120, 50, 80));
+            }
         }
+
+        [...obstacles, ...platforms].forEach((obs, i) => {
+            obs.update(); obs.draw();
+            if (obs.type === 'spike') {
+                let m = 8;
+                if (player.x + m < obs.x + obs.w && player.x + player.size - m > obs.x && player.y + m < obs.y + obs.h && player.y + player.size - m > obs.y) {
+                    gameOver();
+                }
+            }
+            if (obs.x + obs.w < -100) {
+                if (obs.type === 'spike') obstacles.splice(obstacles.indexOf(obs), 1);
+                else platforms.splice(platforms.indexOf(obs), 1);
+            }
+        });
+
+        // Monety
+        if (frame % 100 === 0) coins.push({x: canvas.width, y: canvas.height - 150 - Math.random()*100});
+        coins.forEach((c, i) => {
+            c.x -= gameSpeed;
+            ctx.shadowBlur = 15; ctx.shadowColor = "#ffcc00";
+            ctx.fillStyle = "#ffcc00"; ctx.beginPath(); ctx.arc(c.x, c.y, 8, 0, Math.PI*2); ctx.fill();
+            if (Math.hypot(player.x - c.x, player.y - c.y) < 40) {
+                gameData.coins += 10; coins.splice(i, 1);
+                document.getElementById('coins').innerText = gameData.coins;
+            }
+            if (c.x < -20) coins.splice(i, 1);
+        });
+
+        player.update();
+        player.draw();
+        
+        score++;
+        document.getElementById('score').innerText = score;
+
+        // Odblokowywanie map i skinów na podstawie wyniku
+        LEVELS.forEach(l => {
+            if (score >= l.req && !gameData.unlockedLevels.includes(l.id)) {
+                gameData.unlockedLevels.push(l.id);
+                gameData.unlockedSkins.push(l.id);
+                save();
+            }
+        });
+
+        frame++;
+        requestAnimationFrame(loop);
     }
 
-    // Cząsteczki
-    particles.forEach((p, i) => {
-        p.x += p.vx; p.y += p.vy; p.life -= 0.02;
-        ctx.fillStyle = `rgba(255,255,255,${p.life})`;
-        ctx.fillRect(p.x, p.y, 4, 4);
-        if(p.life <= 0) particles.splice(i, 1);
-    });
+    function gameOver() {
+        isGameOver = true;
+        save();
+        document.getElementById('menu').style.display = 'flex';
+        document.querySelector('h1').innerText = "KONIEC GRY";
+    }
 
-    // Trail gracza
-    player.trail.forEach((t, i) => {
-        ctx.fillStyle = `rgba(0, 242, 255, ${i/20})`;
-        ctx.fillRect(t.x, t.y, player.size, player.size);
-    });
+    function startGame() {
+        isGameOver = false;
+        score = 0; frame = 0;
+        obstacles = []; platforms = []; coins = []; trails = [];
+        player.y = 300; player.dy = 0;
+        document.getElementById('menu').style.display = 'none';
+        loop();
+    }
 
-    // Gracz
-    ctx.save();
-    ctx.translate(player.x + player.size/2, player.y + player.size/2);
-    ctx.rotate(player.rotation);
-    ctx.shadowBlur = 15; ctx.shadowColor = currentLevel.color;
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(-player.size/2, -player.size/2, player.size, player.size);
-    ctx.fillStyle = "#000";
-    ctx.font = "24px Arial";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(skins[selectedSkin], 0, 0);
-    ctx.restore();
-}
-
-function die() {
-    gameState = 'GAMEOVER';
-    document.getElementById('end-screen').classList.remove('hidden');
-    document.getElementById('end-title').innerText = "ROZBITO CIĘ!";
-    document.getElementById('end-title').style.color = "red";
-    document.getElementById('end-info').innerText = "Postęp: " + document.getElementById('progress').innerText;
-}
-
-function win() {
-    gameState = 'WIN';
-    document.getElementById('end-screen').classList.remove('hidden');
-    document.getElementById('end-title').innerText = "POZIOM UKOŃCZONY!";
-    document.getElementById('end-title').style.color = "var(--neon-blue)";
+    document.getElementById('playBtn').onclick = startGame;
     
-    // Odblokuj nowy skin
-    if(unlockedSkins.length < skins.length) {
-        unlockedSkins.push(unlockedSkins.length);
-        localStorage.setItem('unlockedSkins', JSON.stringify(unlockedSkins));
-        renderSkins();
-        document.getElementById('end-info').innerText = "Odblokowano nową ikonę!";
-    }
-}
+    // Sterowanie
+    const handleJump = () => {
+        if (!isGameOver) {
+            const max = gameData.upgrades.dj ? 2 : 1;
+            if (player.jumps < max) {
+                player.dy = player.jumpPower;
+                player.grounded = false;
+                player.jumps++;
+            }
+        }
+    };
 
-function backToMenu() {
-    gameState = 'MENU';
-    document.getElementById('end-screen').classList.add('hidden');
-    document.getElementById('main-menu').classList.remove('hidden');
-    document.getElementById('hud').classList.add('hidden');
-}
+    window.onkeydown = (e) => { if(e.code === 'Space') { e.preventDefault(); handleJump(); } };
+    canvas.onmousedown = (e) => { e.preventDefault(); handleJump(); };
 
-// Start
-renderSkins();
 </script>
 </body>
 </html>
